@@ -1,0 +1,6 @@
+fail_on: info
+severity:
+  PCG001: error
+allowed_hosts: [github.com, git.example.net]
+allow_tags:
+  - https://github.com/pre-commit/*

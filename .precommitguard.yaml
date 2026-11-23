@@ -1,0 +1,4 @@
+# precommitguard's own config: the fixtures are intentionally bad.
+ignore_paths:
+  - "tests/fixtures/**"
+fail_on: info

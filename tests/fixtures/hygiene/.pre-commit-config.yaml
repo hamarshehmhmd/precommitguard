@@ -1,0 +1,38 @@
+default_stages: [commit, push, merge-commit, sometimes]
+fail_fast: yes please
+repo:
+  - oops
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    sha: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c
+    hooks:
+      - id: check-json
+        exlude: "*.json"
+        files: docs/*
+      - id: check-json
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 1.0
+    hooks: []
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        files: '[\\/]src[\\/].*\.py$'
+        always_run: true
+  - repo: local
+    rev: v1
+    hooks:
+      - id: mypy
+        name: mypy
+        language: python_venv
+      - id: hello
+        name: hello
+        entry: echo hi
+        language: pyhton
+        stages: [commit]
+  - repo: meta
+    hooks:
+      - id: check-everything
+        entry: true
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.0

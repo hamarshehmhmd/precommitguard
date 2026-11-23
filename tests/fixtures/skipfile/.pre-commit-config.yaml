@@ -1,0 +1,4 @@
+# precommitguard: ignore-file
+repos:
+  - repo: http://example.com/x
+    rev: main
