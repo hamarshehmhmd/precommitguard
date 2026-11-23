@@ -1,0 +1,8 @@
+- id: precommitguard
+  name: precommitguard
+  description: Lint .pre-commit-config.yaml / .pre-commit-hooks.yaml for supply-chain and hygiene issues
+  entry: precommitguard
+  language: rust
+  files: (^|/)\.pre-commit-(config\.ya?ml|hooks\.yaml)$
+  pass_filenames: true
+  minimum_pre_commit_version: "2.21.0"

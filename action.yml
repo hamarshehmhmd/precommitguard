@@ -1,0 +1,88 @@
+name: precommitguard
+description: Lint .pre-commit-config.yaml for supply-chain and hygiene issues (mutable revs, curl|sh entries, unpinned deps)
+author: hamarshehmhmd
+branding:
+  icon: shield
+  color: green
+inputs:
+  paths:
+    description: Space-separated files or directories to lint (default repository root)
+    required: false
+    default: "."
+  format:
+    description: Output format (human, json, sarif, github)
+    required: false
+    default: github
+  fail-on:
+    description: Minimum severity that fails the step (info, warning, error, never)
+    required: false
+    default: warning
+  version:
+    description: precommitguard release tag to install (e.g. v0.1.0)
+    required: false
+    default: latest
+  sarif-file:
+    description: If set, also write SARIF to this path
+    required: false
+    default: ""
+  upload-sarif:
+    description: "Set to 'true' to upload the SARIF file to GitHub code scanning (needs security-events: write; uses sarif-file or precommitguard.sarif)"
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Install precommitguard
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64) t=x86_64-unknown-linux-musl; ext=tar.gz ;;
+          Linux-ARM64) t=aarch64-unknown-linux-gnu; ext=tar.gz ;;
+          macOS-X64) t=x86_64-apple-darwin; ext=tar.gz ;;
+          macOS-ARM64) t=aarch64-apple-darwin; ext=tar.gz ;;
+          Windows-X64) t=x86_64-pc-windows-msvc; ext=zip ;;
+          *) echo "unsupported runner ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(gh release view -R hamarshehmhmd/precommitguard --json tagName -q .tagName)
+        fi
+        dir="$RUNNER_TEMP/precommitguard"
+        mkdir -p "$dir"
+        gh release download "$VERSION" -R hamarshehmhmd/precommitguard -p "precommitguard-$VERSION-$t.$ext" -p SHA256SUMS -D "$dir" --clobber
+        cd "$dir"
+        if command -v sha256sum >/dev/null; then
+          grep " precommitguard-$VERSION-$t.$ext\$" SHA256SUMS | sha256sum -c -
+        else
+          grep " precommitguard-$VERSION-$t.$ext\$" SHA256SUMS | shasum -a 256 -c -
+        fi
+        if [ "$ext" = zip ]; then 7z x -y "precommitguard-$VERSION-$t.zip" >/dev/null; else tar xzf "precommitguard-$VERSION-$t.tar.gz"; fi
+        echo "$dir/precommitguard-$VERSION-$t" >> "$GITHUB_PATH"
+    - name: Run precommitguard
+      id: run
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        FORMAT: ${{ inputs.format }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SARIF: ${{ inputs.sarif-file }}
+        UPLOAD: ${{ inputs.upload-sarif }}
+      run: |
+        set -uo pipefail
+        if [ -z "$SARIF" ] && [ "$UPLOAD" = "true" ]; then
+          SARIF=precommitguard.sarif
+        fi
+        echo "sarif=$SARIF" >> "$GITHUB_OUTPUT"
+        if [ -n "$SARIF" ]; then
+          precommitguard --format sarif --fail-on never $PATHS > "$SARIF" || true
+        fi
+        precommitguard --format "$FORMAT" --fail-on "$FAIL_ON" $PATHS
+    - name: Upload SARIF
+      if: always() && inputs.upload-sarif == 'true' && steps.run.outputs.sarif != ''
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.run.outputs.sarif }}
+        category: precommitguard

@@ -1,0 +1,28 @@
+[package]
+name = "precommitguard"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Fast offline supply-chain and hygiene linter for .pre-commit-config.yaml and .pre-commit-hooks.yaml, with SARIF and GitHub Actions output"
+license = "MIT"
+repository = "https://github.com/hamarshehmhmd/precommitguard"
+homepage = "https://github.com/hamarshehmhmd/precommitguard/blob/main/docs/rules.md"
+readme = "README.md"
+authors = ["Mohammad Hamarsheh"]
+keywords = ["pre-commit", "linter", "supply-chain", "sarif", "security"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [".github/", "tests/fixtures/"]
+
+[dependencies]
+clap = { version = "4.6.9", features = ["derive"] }
+fancy-regex = "0.20.2"
+globset = "0.4.22"
+regex-lite = "0.1.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+yaml-rust2 = "0.13.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

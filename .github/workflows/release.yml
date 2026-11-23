@@ -1,0 +1,82 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, musl: true }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          name="precommitguard-${REF_NAME}-${TARGET}"
+          mkdir "$name"
+          cp README.md LICENSE "$name/"
+          if [[ "$TARGET" == *windows* ]]; then
+            cp "target/$TARGET/release/precommitguard.exe" "$name/"
+            7z a "$name.zip" "$name" >/dev/null
+          else
+            cp "target/$TARGET/release/precommitguard" "$name/"
+            tar czf "$name.tar.gz" "$name"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            precommitguard-*.tar.gz
+            precommitguard-*.zip
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum precommitguard-*.tar.gz precommitguard-*.zip > SHA256SUMS
+      - name: Release notes from CHANGELOG
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          ver="${REF_NAME#v}"
+          awk -v v="$ver" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          cat >> notes.md <<'NOTES'
+
+          ### Install
+
+          Download the archive for your platform below and verify it against `SHA256SUMS`, or:
+
+          ```sh
+          cargo install --git https://github.com/hamarshehmhmd/precommitguard --tag ${{ github.ref_name }}
+          ```
+          NOTES
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          files: |
+            dist/precommitguard-*.tar.gz
+            dist/precommitguard-*.zip
+            dist/SHA256SUMS
